@@ -400,8 +400,8 @@ step12_build_frontend() {
     
     cd $DEPLOY_DIR/quantmind
     
-    log_info "构建生产版本 (可能需要 2-3 分钟)..."
-    sudo -u ${SUDO_USER:-root} npm run dashboard:build
+    log_info "构建生产版本 (使用相对路径，通过Nginx代理)..."
+    sudo -u ${SUDO_USER:-root} env VITE_API_BASE_URL="" npm run dashboard:build
     
     log_info "前端构建完成"
     ls -la electron/dist-react/ | head -10

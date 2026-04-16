@@ -262,9 +262,9 @@ REDIS_PASSWORD=
 STORAGE_MODE=local
 STORAGE_ROOT=${DATA_DIR}
 
-# 前端配置
-VITE_API_URL=http://${SERVER_IP}:8000
-VITE_WS_URL=ws://${SERVER_IP}:8000
+# 前端配置 (Web部署使用相对路径，通过Nginx代理)
+# VITE_API_URL=  # 留空，使用相对路径 /api
+# VITE_WS_URL=   # 留空，使用相对路径 /ws
 
 # 调试配置
 DEBUG=false
@@ -361,8 +361,8 @@ step11_build_frontend() {
     
     cd $DEPLOY_DIR/quantmind
     
-    log_info "构建生产版本..."
-    npm run dashboard:build
+    log_info "构建生产版本 (使用相对路径，通过Nginx代理)..."
+    VITE_API_BASE_URL="" npm run dashboard:build
     
     log_info "前端构建完成"
 }
