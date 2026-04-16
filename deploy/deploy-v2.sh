@@ -1,13 +1,13 @@
 #!/bin/bash
 #===============================================================================
-# QuantMind 一键部署脚本 (国内优化版 v2.0)
+# QuantMind 一键部署脚本 (国内优化版 v3.0)
 # 适用于 Ubuntu 20.04/22.04/24.04
 # 
 # 特性:
 #   - 使用阿里云 Docker 镜像
 #   - 使用淘宝 Node.js 镜像
 #   - 使用淘宝 npm 镜像
-#   - 每步完成后暂停等待确认
+#   - 支持断点续传
 #
 # 使用方式:
 #   chmod +x deploy-v2.sh
@@ -27,8 +27,11 @@ NC='\033[0m'
 DEPLOY_DIR="/opt/quantmind"
 DATA_DIR="/opt/quantmind/data"
 REPO_URL="https://gitee.com/qusong0627/quantmind.git"
-SERVER_IP="139.199.75.121"
 NODE_VERSION="20.19.0"
+DOCKER_MIRROR="https://naw1faud2gpqbs.xuanyuan.run"
+
+# 自动获取服务器 IP
+SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
 
 # 进度文件
 PROGRESS_FILE="/tmp/quantmind_deploy_progress"
@@ -95,8 +98,6 @@ step2_install_docker() {
         log_warn "Docker 已安装: $(docker --version)"
     else
         log_info "使用阿里云镜像安装 Docker..."
-        
-        # 使用阿里云镜像脚本
         curl -fsSL https://get.docker.com | bash -s docker --mirror Aliyun
         
         # 启动 Docker
@@ -111,6 +112,20 @@ step2_install_docker() {
         
         log_info "Docker 安装完成: $(docker --version)"
     fi
+    
+    # 配置 Docker 镜像加速器
+    log_info "配置 Docker 镜像加速器..."
+    mkdir -p /etc/docker
+    cat > /etc/docker/daemon.json << EOF
+{
+    "registry-mirrors": [
+        "${DOCKER_MIRROR}"
+    ]
+}
+EOF
+    systemctl daemon-reload
+    systemctl restart docker
+    sleep 3
     
     # 验证 Docker Compose
     if docker compose version &> /dev/null; then
@@ -227,6 +242,9 @@ step6_clone_code() {
         cd quantmind
     fi
     
+    # 修复权限
+    chown -R ${SUDO_USER:-root}:${SUDO_USER:-root} $DEPLOY_DIR/quantmind
+    
     log_info "代码目录: $(pwd)"
     log_info "当前分支: $(git branch --show-current)"
     log_info "最新提交: $(git log -1 --oneline)"
@@ -255,36 +273,28 @@ step7_config_environment() {
         cat > .env << EOF
 # QuantMind OSS Edition 配置
 
-# 应用配置
 APP_EDITION=oss
 APP_ENV=production
 TZ=Asia/Shanghai
 
-# 安全配置
 SECRET_KEY=${SECRET_KEY}
 JWT_SECRET_KEY=${JWT_SECRET_KEY}
 
-# 数据库配置
 DB_HOST=db
 DB_PORT=5432
 DB_NAME=quantmind
 DB_USER=quantmind
 DB_PASSWORD=quantmind2026
 
-# Redis 配置
 REDIS_HOST=redis
 REDIS_PORT=6379
-REDIS_PASSWORD=
 
-# 存储配置
 STORAGE_MODE=local
 STORAGE_ROOT=${DATA_DIR}
 
-# 前端配置
 VITE_API_URL=http://${SERVER_IP}:8000
 VITE_WS_URL=ws://${SERVER_IP}:8000
 
-# 调试配置
 DEBUG=false
 LOG_LEVEL=INFO
 EOF
@@ -329,8 +339,8 @@ step9_start_backend() {
     log_info "启动 Docker Compose 服务..."
     docker compose up -d
     
-    log_info "等待服务启动 (15秒)..."
-    sleep 15
+    log_info "等待服务启动 (30秒)..."
+    sleep 30
     
     log_info "检查服务状态:"
     docker compose ps
@@ -348,8 +358,8 @@ step10_init_database() {
     cd $DEPLOY_DIR/quantmind
     
     # 等待数据库就绪
-    log_info "等待数据库就绪..."
-    sleep 5
+    log_info "等待数据库完全就绪..."
+    sleep 10
     
     if [[ -f "data/quantmind_init.sql" ]]; then
         log_info "初始化数据库..."
@@ -372,8 +382,11 @@ step11_install_frontend() {
     
     cd $DEPLOY_DIR/quantmind
     
+    # 修复权限
+    chown -R ${SUDO_USER:-root}:${SUDO_USER:-root} .
+    
     log_info "安装 npm 依赖 (可能需要 3-5 分钟)..."
-    npm install
+    sudo -u ${SUDO_USER:-root} npm install
     
     log_done "Step 11"
     save_progress "11"
@@ -388,7 +401,7 @@ step12_build_frontend() {
     cd $DEPLOY_DIR/quantmind
     
     log_info "构建生产版本 (可能需要 2-3 分钟)..."
-    npm run dashboard:build
+    sudo -u ${SUDO_USER:-root} npm run dashboard:build
     
     log_info "前端构建完成"
     ls -la electron/dist-react/ | head -10
@@ -533,11 +546,15 @@ step15_health_check() {
     
     echo ""
     log_info "测试后端 API..."
-    curl -s http://localhost:8000/docs -o /dev/null && log_info "后端 API: 正常" || log_warn "后端 API: 未就绪"
+    curl -s http://localhost:8000/health -o /dev/null && log_info "后端 API: 正常" || log_warn "后端 API: 未就绪"
     
     echo ""
     log_info "测试前端..."
     curl -s http://localhost:3000 -o /dev/null && log_info "前端服务: 正常" || log_warn "前端服务: 未就绪"
+    
+    echo ""
+    log_info "测试 Nginx..."
+    curl -s http://localhost -o /dev/null && log_info "Nginx: 正常" || log_warn "Nginx: 未就绪"
     
     log_done "Step 15"
     save_progress "15"
@@ -581,6 +598,7 @@ show_info() {
     echo -e "访问地址:"
     echo -e "  前端: ${BLUE}http://${SERVER_IP}${NC}"
     echo -e "  后端: ${BLUE}http://${SERVER_IP}:8000/docs${NC}"
+    echo -e "  Engine: ${BLUE}http://${SERVER_IP}:8001/docs${NC}"
     echo ""
     echo -e "默认管理员账号:"
     echo -e "  用户名: ${YELLOW}admin${NC}"
@@ -606,7 +624,7 @@ main() {
     
     echo -e "${GREEN}========================================${NC}"
     echo -e "${GREEN}  QuantMind 一键部署脚本${NC}"
-    echo -e "${GREEN}  版本: 2.0.0 (国内优化版)${NC}"
+    echo -e "${GREEN}  版本: 3.0.0 (国内优化版)${NC}"
     echo -e "${GREEN}========================================${NC}"
     echo ""
     
