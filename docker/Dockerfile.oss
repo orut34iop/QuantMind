@@ -45,6 +45,7 @@ COPY requirements/ai.txt /tmp/requirements-ai.txt
 RUN python -m pip install --upgrade pip setuptools wheel cython \
     && python -m pip install --no-cache-dir -r /tmp/requirements.txt \
     && python -m pip install --no-cache-dir -r /tmp/requirements-production.txt \
+    && python -m pip install --no-cache-dir -r /tmp/requirements-ai.txt \
     && rm -f /tmp/requirements*.txt
 
 # 复制源代码
