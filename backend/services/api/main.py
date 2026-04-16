@@ -26,9 +26,11 @@ from backend.services.api.routers.model_training import router as model_training
 from backend.services.api.routers.stocks_search import router as stocks_search_router
 from backend.services.api.routers.trade_proxy import router as trade_proxy_router
 from backend.services.api.user_app.api.v1.api_keys import router as api_keys_router
-from backend.services.api.user_app.api.v1.subscriptions import (
-    router as subscriptions_router,
-)
+
+# OSS 版本禁用订阅功能
+# from backend.services.api.user_app.api.v1.subscriptions import (
+#     router as subscriptions_router,
+# )
 from backend.shared.config_manager import init_unified_config
 from backend.shared.cors import resolve_cors_origins
 from backend.shared.database_pool import init_default_databases as init_sync_db_pool
@@ -118,9 +120,10 @@ app.include_router(stocks_search_router)
 app.include_router(trading_calendar.router)
 app.include_router(api_keys_router, prefix="/api/v1")
 app.include_router(asset_router, prefix="/api/v1/asset", tags=["Asset"])
-app.include_router(
-    subscriptions_router, prefix="/api/v1/subscription", tags=["Subscriptions"]
-)
+# OSS 版本禁用订阅功能
+# app.include_router(
+#     subscriptions_router, prefix="/api/v1/subscription", tags=["Subscriptions"]
+# )
 
 # 3. 注册代理路由 (低优先级，兜底捕获)
 app.include_router(engine_proxy_router)
