@@ -13,7 +13,8 @@ const apiBase =
     configuredRealTradingApiUrl ||
     `${SERVICE_ENDPOINTS.API_GATEWAY}/real-trading`;
 const configuredRealTradingDirectUrl = String((import.meta as any).env?.VITE_REAL_TRADING_DIRECT_URL || '').trim();
-const directApiBase = configuredRealTradingDirectUrl || 'http://127.0.0.1:8000/api/v1/real-trading';
+// OSS 版本使用相对路径，通过 Nginx 代理
+const directApiBase = configuredRealTradingDirectUrl || '/api/v1/real-trading';
 const normalizedApiBase = apiBase.replace(/\/+$/, '');
 const normalizedDirectApiBase = directApiBase.replace(/\/+$/, '');
 const hasDistinctDirectFallback = normalizedApiBase !== normalizedDirectApiBase;
