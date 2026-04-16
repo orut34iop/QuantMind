@@ -152,7 +152,7 @@ class Settings(BaseSettings):
     )
 
     environment: str = os.getenv("APP_ENV", "production")
-    debug: bool = os.getenv("DEBUG", "false").lower() == "true")
+    debug: bool = os.getenv("DEBUG", "false").lower() == "true"
     edition: str = os.getenv("APP_EDITION", "oss").lower()
 
     @property
