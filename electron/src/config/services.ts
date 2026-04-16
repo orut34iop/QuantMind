@@ -24,7 +24,7 @@ export const SERVICE_PORTS = {
 } as const;
 
 const ENV: Record<string, any> = typeof import.meta !== 'undefined' ? (import.meta as any).env || {} : {};
-const HOST = ENV.VITE_SERVICE_HOST || 'localhost:8000';
+const HOST = ENV.VITE_SERVICE_HOST || '127.0.0.1:8000';
 const HTTP_PROTOCOL = ENV.VITE_HTTP_PROTOCOL || 'http';
 const WS_PROTOCOL = HTTP_PROTOCOL === 'https' ? 'wss' : 'ws';
 

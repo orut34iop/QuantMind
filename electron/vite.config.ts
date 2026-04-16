@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-const apiBase = process.env.VITE_API_URL || process.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const apiBase = process.env.VITE_API_URL || process.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 const wsBase = process.env.VITE_WS_BASE_URL || apiBase.replace(/^http/, 'ws');
 
 export default defineConfig(({ mode }) => {
