@@ -1,0 +1,1 @@
+[prepare-ai-ide-python] AI_IDE_PYTHON_RUNTIME_DIR is not set; skipping Python bundle preparation.

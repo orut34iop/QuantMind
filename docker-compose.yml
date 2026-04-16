@@ -1,0 +1,116 @@
+# QuantMind OSS Edition - Docker Compose
+# 单镜像部署，所有服务运行在一个容器内
+
+services:
+  # 1. 数据库 (PostgreSQL)
+  db:
+    image: postgres:15-alpine
+    container_name: quantmind-db
+    environment:
+      - POSTGRES_DB=${DB_NAME:-quantmind}
+      - POSTGRES_USER=${DB_USER:-quantmind}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-quantmind2026}
+      - TZ=Asia/Shanghai
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - quantmind-net
+
+  # 2. 缓存 (Redis) - 统一实例
+  redis:
+    image: redis:7-alpine
+    container_name: quantmind-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru --databases 16
+    volumes:
+      - ./data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - quantmind-net
+
+  # 3. QuantMind 核心服务 (单镜像运行所有后端服务)
+  quantmind:
+    image: quantmind-oss:latest
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.oss
+    container_name: quantmind
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"  # API Gateway
+      - "8001:8001"  # Engine (Qlib回测)
+      - "8002:8002"  # Trade (交易服务)
+      - "8003:8003"  # Stream (实时行情)
+    environment:
+      # 应用配置
+      - APP_EDITION=oss
+      - APP_ENV=production
+      - SERVICE_MODE=all
+      - TZ=Asia/Shanghai
+      - PYTHONPATH=/app
+      
+      # 安全配置
+      - SECRET_KEY=${SECRET_KEY:-quantmind-oss-secret-key-2026}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-quantmind-oss-jwt-key-2026}
+      
+      # 数据库配置
+      - DB_DRIVER=asyncpg
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-quantmind}
+      - DB_USER=${DB_USER:-quantmind}
+      - DB_PASSWORD=${DB_PASSWORD:-quantmind2026}
+      - DATABASE_URL=postgresql+asyncpg://quantmind:quantmind2026@db:5432/quantmind
+      
+      # Redis 配置
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-quantmind2026}
+      
+      # 存储配置 (本地存储)
+      - STORAGE_MODE=local
+      - STORAGE_ROOT=/data
+      
+      # 服务端口
+      - API_PORT=8000
+      - ENGINE_PORT=8001
+      - TRADE_PORT=8002
+      - STREAM_PORT=8003
+      
+      # 调试配置
+      - DEBUG=false
+      - LOG_LEVEL=INFO
+    volumes:
+      # 运行时数据
+      - ./data:/data
+      # AI 模型文件 (按需下载)
+      - ./models:/app/models
+      # Qlib 历史数据 (按需下载)
+      - ./db:/app/db
+      # 日志
+      - ./logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - quantmind-net
+
+networks:
+  quantmind-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:

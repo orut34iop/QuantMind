@@ -1,0 +1,46 @@
+appId: com.quantmind.dashboard
+productName: QuantMind量化助手
+copyright: Copyright © 2025 QuantMind
+
+directories:
+  output: dist
+
+files:
+  - dist-react/**/*
+  - dist-electron/**/*
+  - "!**/.vscode/*"
+  - "!src/*"
+
+extraResources:
+  - from: dist-electron/backend/services/ai_ide
+    to: backend/services/ai_ide
+  - from: dist-electron/backend/__init__.py
+    to: backend/__init__.py
+  - from: dist-electron/python
+    to: python
+
+# OSS Edition - no cloud update server
+# publish:
+#   - provider: generic
+#     url: https://cos.quantmind.cloud/update
+
+mac:
+  category: public.app-category.finance
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  icon: build/icon.icns
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  identity: null
+
+dmg:
+  title: ${productName} ${version}
+
+compression: maximum

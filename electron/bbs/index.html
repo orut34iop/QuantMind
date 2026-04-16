@@ -1,0 +1,100 @@
+<!--
+目录说明（满足“为每个目录添加注释”的要求）：
+- `/index.html`：站点入口页面，组织结构与内容挂载点。
+- `/styles/`：全站样式目录，包含设计令牌（CSS变量）、布局与组件样式，主文件为 `main.css`。
+- `/scripts/`：前端交互逻辑目录，包含数据、筛选与渲染代码，主文件为 `app.js`。
+- `/assets/`：静态资源目录（占位图、图标等），本页使用 `placeholder.svg`。
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>研究交流 · QuantMind</title>
+    <link rel="preload" href="/styles/main.css" as="style" />
+    <link rel="stylesheet" href="/styles/main.css" />
+  </head>
+  <body>
+    <!-- 全局顶栏 -->
+    <header class="site-header" role="banner">
+      <div class="header-inner container">
+        <a class="brand" href="#" aria-label="QuantMind 首页">QuantMind</a>
+        <nav class="primary-nav" aria-label="主导航">
+          <a href="#" class="nav-link active">研究交流</a>
+          <a href="#" class="nav-link">策略</a>
+          <a href="#" class="nav-link">问答</a>
+          <a href="#" class="nav-link">文档</a>
+          <a href="#" class="nav-link">课程</a>
+          <a href="#" class="nav-link">比赛</a>
+          <a href="#" class="nav-link">实盘</a>
+        </nav>
+        <div class="header-actions">
+          <label class="search" aria-label="站内搜索">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <input id="searchInput" type="search" placeholder="搜索帖子…" autocomplete="off" />
+          </label>
+          <button class="btn ghost" type="button">登录</button>
+          <button class="btn primary" type="button">注册</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- 页面标题与次级标签 -->
+    <div class="page-head container">
+      <h1 class="page-title">研究交流</h1>
+    </div>
+
+    <!-- JQData 横幅 -->
+    <div class="banner-container container">
+      <div class="banner-wide" id="topBanner">
+        <div>
+          <div class="banner-wide-title">JQData</div>
+          <div class="banner-wide-desc">全市场高频分钟/毫秒线数据，毫秒级响应</div>
+        </div>
+        <button class="banner-wide-btn">立即开通</button>
+      </div>
+    </div>
+
+    <!-- 筛选标签模块移动到JQData横幅下方 -->
+    <div class="filter-bar container">
+      <div class="tabs" role="tablist" aria-label="筛选与排序">
+        <button class="tab active" role="tab" data-sort="全部">全部</button>
+        <button class="tab" role="tab" data-sort="最新">最新</button>
+        <button class="tab" role="tab" data-sort="最热">最热</button>
+        <button class="tab" role="tab" data-sort="精华">精华</button>
+      </div>
+    </div>
+
+    <!-- 主两栏布局：左侧 3/4 主内容，右侧 1/4 侧边 -->
+    <main class="layout container" id="layout" role="main">
+      <!-- 左侧主内容区 -->
+      <div class="main-content">
+        <!-- 帖子列表 -->
+        <section class="feed" id="feed" aria-label="帖子列表" aria-live="polite"></section>
+        <section class="post-detail" id="postDetail" hidden aria-label="帖子详情"></section>
+        <!-- 分页控制 -->
+        <div class="page-controls">
+          <!-- 分页导航居中显示 -->
+          <nav class="pagination" id="pagination" aria-label="分页导航"></nav>
+        </div>
+      </div>
+
+      <!-- 右侧栏 -->
+      <aside class="sidebar" aria-label="侧边栏">
+        <!-- 热门用户 -->
+        <div class="sidebar-section">
+          <h2 class="section-title">热门用户</h2>
+          <ul id="hotUsers" class="user-list" aria-live="polite"></ul>
+        </div>
+
+        <!-- 热门话题 -->
+        <div class="sidebar-section">
+          <h2 class="section-title">热门话题</h2>
+          <ul id="hotTopics" class="topic-list" aria-live="polite"></ul>
+        </div>
+      </aside>
+    </main>
+
+    <script src="/scripts/app.js" defer></script>
+  </body>
+</html>
