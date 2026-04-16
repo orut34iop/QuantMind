@@ -11,7 +11,6 @@ from backend.services.api.routers import (
     inquiry,
     notifications,
     profiles,
-    sms,
     system,
     trading_calendar,
     users,
@@ -110,7 +109,6 @@ app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(profiles.router, prefix="/api/v1/profiles", tags=["Profiles"])
 app.include_router(notifications.router, prefix="/api/v1", tags=["Notifications"])
 app.include_router(inquiry.router, prefix="/api/v1", tags=["Inquiry"])
-app.include_router(sms.router, prefix="/api/v1", tags=["SMS"])
 app.include_router(files_router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1/admin")
 app.include_router(
