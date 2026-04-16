@@ -27,7 +27,7 @@ CREATE TYPE public.simulationstatus AS ENUM ('RUNNING', 'PAUSED', 'STOPPED', 'ER
 CREATE TYPE public.strategystatus AS ENUM ('DRAFT', 'REPOSITORY', 'LIVE_TRADING', 'ACTIVE', 'PAUSED', 'STOPPED', 'ARCHIVED');
 CREATE TYPE public.strategytype AS ENUM ('TOPK_DROPOUT', 'WEIGHT_STRATEGY', 'CUSTOM', 'LONG_SHORT_TOPK');
 CREATE TYPE public.tradeaction AS ENUM ('buy', 'sell');
-CREATE TYPE public.tradingmode AS ENUM ('BACKTEST', 'SIMULATION', 'LIVE');
+CREATE TYPE public.tradingmode AS ENUM ('BACKTEST', 'SIMULATION', 'LIVE', 'REAL');
 
 -- ============================================================================
 -- Core Tables: Users & Auth

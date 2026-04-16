@@ -9,7 +9,9 @@ from dataclasses import dataclass
 @dataclass
 class LoggingSettings:
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
-    log_format: str = os.getenv("LOG_FORMAT", "%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    log_format: str = os.getenv(
+        "LOG_FORMAT", "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
     log_file: str = os.getenv("LOG_FILE", "")
     max_log_size: int = int(os.getenv("MAX_LOG_SIZE", str(10 * 1024 * 1024)))
     backup_count: int = int(os.getenv("LOG_BACKUP_COUNT", "5"))
@@ -35,6 +37,7 @@ class Settings:
         self.logging = LoggingSettings()
         self.security = SecuritySettings()
         self.database = DatabaseSettings()
+        self.edition = os.getenv("APP_EDITION", "oss")
 
 
 settings = Settings()
