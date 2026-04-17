@@ -3,12 +3,20 @@ from typing import Any, Dict, Optional
 
 from openai import OpenAI
 
-try:
-    from ...ai_strategy_config import get_config as _get_config
-except ImportError:
-    from backend.services.engine.ai_strategy.ai_strategy_config import get_config as _get_config
+# 延迟加载配置，避免模块导入时触发验证
+_ai_strategy_config = None
 
-ai_strategy_config = _get_config()
+
+def _get_ai_strategy_config():
+    """延迟获取配置，只在需要时才加载"""
+    global _ai_strategy_config
+    if _ai_strategy_config is None:
+        try:
+            from ...ai_strategy_config import get_config as _get_config
+        except ImportError:
+            from backend.services.engine.ai_strategy.ai_strategy_config import get_config as _get_config
+        _ai_strategy_config = _get_config()
+    return _ai_strategy_config
 
 
 class DashScopeClient:
@@ -31,11 +39,12 @@ class DashScopeClient:
         model: str | None = None,
         timeout: int | None = None,
     ) -> dict[str, Any]:
-        model = model or ai_strategy_config.DASHSCOPE_EMBEDDING_MODEL
+        config = _get_ai_strategy_config()
+        model = model or config.DASHSCOPE_EMBEDDING_MODEL
         resp = self.client.embeddings.create(
             model=model,
             input=text,
-            timeout=timeout or ai_strategy_config.DASHSCOPE_EMBEDDING_TIMEOUT,
+            timeout=timeout or config.DASHSCOPE_EMBEDDING_TIMEOUT,
         )
         return {
             "model": resp.model,
@@ -45,11 +54,12 @@ class DashScopeClient:
 
     def health(self) -> str:
         """Lightweight check that the configured endpoint responds."""
+        config = _get_ai_strategy_config()
         try:
             resp = self.client.embeddings.create(
-                model=ai_strategy_config.DASHSCOPE_EMBEDDING_MODEL,
+                model=config.DASHSCOPE_EMBEDDING_MODEL,
                 input="health check",
-                timeout=ai_strategy_config.DASHSCOPE_EMBEDDING_TIMEOUT,
+                timeout=config.DASHSCOPE_EMBEDDING_TIMEOUT,
             )
             return resp.model
         except Exception as exc:

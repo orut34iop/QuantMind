@@ -7,7 +7,16 @@ import numpy as np
 from ...ai_strategy_config import get_config as _get_config
 from .dashscope_client import DashScopeClient
 
-ai_strategy_config = _get_config()
+# 延迟加载配置
+_ai_strategy_config = None
+
+
+def _get_ai_strategy_config():
+    """延迟获取配置"""
+    global _ai_strategy_config
+    if _ai_strategy_config is None:
+        _ai_strategy_config = _get_config()
+    return _ai_strategy_config
 
 logger = logging.getLogger(__name__)
 
@@ -124,7 +133,7 @@ def _cosine_similarity(v1: np.ndarray, v2: np.ndarray) -> float:
 class SchemaRetriever:
     def __init__(self) -> None:
         self.client = DashScopeClient()
-        self.model = ai_strategy_config.DASHSCOPE_EMBEDDING_MODEL
+        self.model = _get_ai_strategy_config().DASHSCOPE_EMBEDDING_MODEL
         self._column_vectors: dict[str, list[tuple[SchemaColumn, np.ndarray]]] = {}
         self._initialized = False
 
