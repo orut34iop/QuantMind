@@ -85,7 +85,7 @@ export const OtherSettings: React.FC<OtherSettingsProps> = ({ userId, tenantId }
   return (
     <div className="w-full pt-1 space-y-6">
       {/* AI API Key 配置 */}
-      <div className="w-full rounded-xl border border-gray-200 bg-white overflow-hidden">
+      <div className="w-full rounded-2xl border border-gray-200 bg-white overflow-hidden">
         {/* 标题 */}
         <div className="px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-indigo-50 to-purple-50">
           <div className="flex items-center gap-3">
@@ -147,7 +147,7 @@ export const OtherSettings: React.FC<OtherSettingsProps> = ({ userId, tenantId }
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="sk-xxxxxxxxxxxxxxxx"
-                  className="pr-10"
+                  className="pr-10 rounded-lg"
                 />
                 <button
                   type="button"
@@ -163,6 +163,7 @@ export const OtherSettings: React.FC<OtherSettingsProps> = ({ userId, tenantId }
                 onClick={handleSaveApiKey}
                 loading={isSaving}
                 disabled={!apiKey.trim()}
+                className="rounded-lg"
               >
                 保存
               </Button>
