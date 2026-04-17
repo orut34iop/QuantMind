@@ -162,6 +162,14 @@ export async function getActivePoolFile(payload: { user_id: string }) {
 }
 
 /**
+ * 设置某个股票池为活跃状态
+ */
+export async function setActivePoolFile(payload: { user_id: string; file_key: string }) {
+  const res = await client.post('/strategy/set-active-pool-file', payload);
+  return res.data;
+}
+
+/**
  * 列出用户历史股票池（用于第二步复用）
  */
 export async function listPoolFiles(payload: { user_id: string; limit?: number }) {

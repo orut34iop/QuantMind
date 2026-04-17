@@ -72,8 +72,7 @@ const SmartStrategyStudio: React.FC = () => {
 
     // 只在poolFile为空时加载
     if (!poolFile?.fileKey) {
-      // Simplified backend does not support active pool retrieval yet
-      // loadActivePoolFile(); 
+      loadActivePoolFile();
     }
   }, []); // 只在组件挂载时执行一次
 

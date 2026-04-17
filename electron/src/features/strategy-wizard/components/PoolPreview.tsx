@@ -3,7 +3,7 @@ import React, { useState, useEffect, useImperativeHandle, useRef, useCallback } 
 import { Card, Table, Statistic, Row, Col, Button, Typography, Space, Empty, Alert, message, Modal, Input, Popconfirm, Tag } from 'antd';
 import ReactECharts from 'echarts-for-react';
 import { useWizardStore } from '../store/wizardStore';
-import { savePoolFile, listPoolFiles, previewPoolFile, deletePoolFile } from '../services/wizardService';
+import { savePoolFile, listPoolFiles, previewPoolFile, deletePoolFile, setActivePoolFile } from '../services/wizardService';
 import { getWizardUserId } from '../utils/userId';
 
 export type PoolPreviewHandle = {
@@ -115,6 +115,12 @@ export const PoolPreview = React.forwardRef<PoolPreviewHandle, { onNext: () => v
           fileSize: res.pool_file.file_size,
           codeHash: res.pool_file.code_hash,
         });
+        // 设置该股票池为活跃状态
+        try {
+          await setActivePoolFile({ user_id: userId, file_key: res.pool_file.file_key });
+        } catch (e) {
+          console.warn('Failed to set active pool file:', e);
+        }
       }
 
       message.success(`已复用股票池：${res.pool_file?.pool_name || fileKey}`);

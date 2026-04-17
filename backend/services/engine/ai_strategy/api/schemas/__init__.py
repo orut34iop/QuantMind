@@ -21,6 +21,8 @@ from .stock_pool import (
     PreviewPoolFileResponse,
     GetActivePoolFileRequest,
     GetActivePoolFileResponse,
+    SetActivePoolFileRequest,
+    SetActivePoolFileResponse,
 )
 from .strategy_params import (
     BuyRule,

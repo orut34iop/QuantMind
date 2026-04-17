@@ -139,3 +139,14 @@ class GetActivePoolFileResponse(BaseModel):
     success: bool
     pool_file: dict[str, Any] | None = None
     error: str | None = None
+
+
+class SetActivePoolFileRequest(BaseModel):
+    tenant_id: str | None = None
+    user_id: str
+    file_key: str
+
+
+class SetActivePoolFileResponse(BaseModel):
+    success: bool
+    error: str | None = None

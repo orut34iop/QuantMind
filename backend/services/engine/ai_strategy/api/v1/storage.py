@@ -33,6 +33,8 @@ from ..schemas import (
     SavePoolFileResponse,
     SaveToCloudRequest,
     SaveToCloudResponse,
+    SetActivePoolFileRequest,
+    SetActivePoolFileResponse,
 )
 
 logger = logging.getLogger(__name__)
@@ -404,3 +406,39 @@ async def delete_pool_file(body: DeletePoolFileRequest):
     except Exception as e:
         logger.error("Delete pool file failed: %s", e, exc_info=True)
         return DeletePoolFileResponse(success=False, error=f"删除失败: {e}")
+
+
+@router.post("/set-active-pool-file", response_model=SetActivePoolFileResponse)
+async def set_active_pool_file(body: SetActivePoolFileRequest, request: Request):
+    """设置某个股票池为活跃状态"""
+    try:
+        logger.info("set_active_pool_file started", extra={"trace_id": _trace_id(request)})
+        uid_variants = _user_id_variants(body.user_id)
+        with get_db() as db:
+            # 先将该用户所有股票池设为非活跃
+            query = db.query(StockPoolFile).filter(
+                StockPoolFile.user_id.in_(uid_variants),
+                StockPoolFile.is_active == True,
+            )
+            if body.tenant_id:
+                query = query.filter(StockPoolFile.tenant_id == body.tenant_id)
+            query.update({"is_active": False}, synchronize_session=False)
+
+            # 再将指定的股票池设为活跃
+            target_query = db.query(StockPoolFile).filter(
+                StockPoolFile.user_id.in_(uid_variants),
+                StockPoolFile.file_key == body.file_key,
+            )
+            if body.tenant_id:
+                target_query = target_query.filter(StockPoolFile.tenant_id == body.tenant_id)
+            target = target_query.first()
+            if target:
+                target.is_active = True
+                db.commit()
+                logger.info("Set pool file active: user=%s file_key=%s", body.user_id, body.file_key)
+                return SetActivePoolFileResponse(success=True)
+            else:
+                return SetActivePoolFileResponse(success=False, error="股票池不存在")
+    except Exception as e:
+        logger.error("Set active pool file failed: %s", e, exc_info=True)
+        return SetActivePoolFileResponse(success=False, error=f"设置失败: {e}")
