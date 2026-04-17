@@ -332,7 +332,7 @@ class QlibBacktestServiceRuntimeMixin(QlibBacktestServiceQueryMixin):
                 "start_time": request.start_date,
                 "end_time": request.end_date,
                 "account": request.initial_capital,
-                "benchmark": request.benchmark,
+                "benchmark": None,  # 禁用 benchmark 以避免数据依赖问题
                 "pos_type": pos_type,
                 "exchange_kwargs": {
                     "exchange": exchange_config,
