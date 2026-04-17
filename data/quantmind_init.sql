@@ -121,6 +121,9 @@ CREATE TABLE public.strategies (
     file_size INTEGER,
     tags TEXT[] DEFAULT ARRAY[]::TEXT[],
     is_public BOOLEAN DEFAULT false,
+    is_verified BOOLEAN DEFAULT false,
+    execution_config JSONB DEFAULT '{}',
+    shared_users JSONB NOT NULL DEFAULT '[]',
     backtest_count INTEGER DEFAULT 0,
     view_count INTEGER DEFAULT 0,
     like_count INTEGER DEFAULT 0,
@@ -147,6 +150,9 @@ CREATE TABLE public.user_strategies (
     validation_result JSONB DEFAULT '{}',
     tags TEXT[] DEFAULT ARRAY[]::TEXT[],
     is_public BOOLEAN DEFAULT false,
+    is_verified BOOLEAN DEFAULT false,
+    execution_config JSONB DEFAULT '{}',
+    shared_users JSONB NOT NULL DEFAULT '[]',
     downloads INTEGER DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -176,17 +182,25 @@ CREATE TABLE public.stock_pool_files (
 
 CREATE TABLE public.qlib_backtest_runs (
     id VARCHAR(64) PRIMARY KEY,
+    backtest_id VARCHAR(64),                    -- 兼容字段，与 id 同值
     user_id VARCHAR(64) NOT NULL,
     tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
     strategy_id VARCHAR(64),
     status VARCHAR(32) NOT NULL DEFAULT 'pending',
     config JSONB NOT NULL DEFAULT '{}',
+    config_json JSONB,                          -- 兼容字段，与 config 同值
     result JSONB,
+    result_json JSONB,                          -- 兼容字段，与 result 同值
     error_message TEXT,
     task_id VARCHAR(64),
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
     execution_time_seconds FLOAT,
+    result_file_path TEXT,
+    result_cos_key TEXT,
+    result_cos_url TEXT,
+    result_backup_status TEXT NOT NULL DEFAULT 'none',
+    result_backup_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -410,6 +424,8 @@ CREATE TABLE public.qm_model_inference_runs (
     config JSONB NOT NULL DEFAULT '{}',
     result_path VARCHAR(500),
     metrics JSONB,
+    data_trade_date DATE,
+    prediction_trade_date DATE,
     started_at TIMESTAMPTZ,
     completed_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT now()
@@ -458,6 +474,58 @@ CREATE TABLE public.audit_logs (
 );
 
 -- ============================================================================
+-- Core Tables: Real-time Quotes
+-- ============================================================================
+
+CREATE TABLE public.quotes (
+    id SERIAL PRIMARY KEY,
+    symbol VARCHAR(20) NOT NULL,
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT now(),
+    open_price FLOAT,
+    high_price FLOAT,
+    low_price FLOAT,
+    close_price FLOAT,
+    current_price FLOAT NOT NULL,
+    volume BIGINT,
+    amount FLOAT,
+    pre_close FLOAT,
+    change FLOAT,
+    change_percent FLOAT,
+    bid1_price FLOAT, bid1_volume BIGINT,
+    bid2_price FLOAT, bid2_volume BIGINT,
+    bid3_price FLOAT, bid3_volume BIGINT,
+    bid4_price FLOAT, bid4_volume BIGINT,
+    bid5_price FLOAT, bid5_volume BIGINT,
+    ask1_price FLOAT, ask1_volume BIGINT,
+    ask2_price FLOAT, ask2_volume BIGINT,
+    ask3_price FLOAT, ask3_volume BIGINT,
+    ask4_price FLOAT, ask4_volume BIGINT,
+    ask5_price FLOAT, ask5_volume BIGINT,
+    data_source VARCHAR(20),
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE public.quote_daily_summaries (
+    id SERIAL PRIMARY KEY,
+    trade_date DATE NOT NULL,
+    symbol VARCHAR(20) NOT NULL,
+    data_source VARCHAR(20) NOT NULL DEFAULT 'remote_redis',
+    open_price FLOAT,
+    high_price FLOAT,
+    low_price FLOAT,
+    close_price FLOAT,
+    avg_price FLOAT,
+    volume_sum BIGINT,
+    amount_sum FLOAT,
+    quote_count INTEGER,
+    first_quote_at TIMESTAMPTZ,
+    last_quote_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now(),
+    UNIQUE(trade_date, symbol, data_source)
+);
+
+-- ============================================================================
 -- Indexes
 -- ============================================================================
 
@@ -478,6 +546,106 @@ CREATE INDEX idx_market_data_daily_symbol_date ON public.market_data_daily(symbo
 CREATE INDEX idx_notifications_user_id ON public.notifications(user_id);
 CREATE INDEX idx_audit_logs_user_id ON public.audit_logs(user_id);
 CREATE INDEX idx_audit_logs_created_at ON public.audit_logs(created_at);
+CREATE INDEX idx_quotes_symbol ON public.quotes(symbol);
+CREATE INDEX idx_quotes_timestamp ON public.quotes(timestamp);
+CREATE INDEX idx_quotes_symbol_timestamp ON public.quotes(symbol, timestamp);
+
+-- ============================================================================
+-- Core Tables: Real Trading Account Snapshots
+-- ============================================================================
+
+CREATE TABLE public.real_account_snapshots (
+    id SERIAL PRIMARY KEY,
+    tenant_id VARCHAR(50) NOT NULL,
+    user_id VARCHAR(50) NOT NULL,
+    account_id VARCHAR(64) NOT NULL,
+    snapshot_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    snapshot_date DATE NOT NULL,
+    snapshot_month VARCHAR(7) NOT NULL,
+    total_asset FLOAT NOT NULL DEFAULT 0.0,
+    cash FLOAT NOT NULL DEFAULT 0.0,
+    market_value FLOAT NOT NULL DEFAULT 0.0,
+    today_pnl_raw FLOAT NOT NULL DEFAULT 0.0,
+    total_pnl_raw FLOAT NOT NULL DEFAULT 0.0,
+    floating_pnl_raw FLOAT NOT NULL DEFAULT 0.0,
+    source VARCHAR(32) NOT NULL DEFAULT 'qmt_bridge',
+    payload_json JSONB NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX idx_real_account_snapshots_tenant ON public.real_account_snapshots(tenant_id);
+CREATE INDEX idx_real_account_snapshots_user ON public.real_account_snapshots(user_id);
+CREATE INDEX idx_real_account_snapshots_account ON public.real_account_snapshots(account_id);
+CREATE INDEX idx_real_account_snapshots_date ON public.real_account_snapshots(snapshot_date);
+
+-- ============================================================================
+-- Core Tables: Market Calendar
+-- ============================================================================
+
+CREATE TABLE public.qm_market_calendar_day (
+    market VARCHAR(32) NOT NULL,
+    trade_date DATE NOT NULL,
+    is_trading_day BOOLEAN NOT NULL,
+    timezone VARCHAR(64) NOT NULL DEFAULT 'Asia/Shanghai',
+    source VARCHAR(64) NOT NULL DEFAULT 'manual',
+    version VARCHAR(64),
+    tenant_id VARCHAR(64) NOT NULL DEFAULT 'default',
+    user_id VARCHAR(64) NOT NULL DEFAULT '*',
+    metadata_json JSONB,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (market, trade_date, tenant_id, user_id)
+);
+
+CREATE INDEX idx_qm_calendar_day_query ON public.qm_market_calendar_day (market, tenant_id, user_id, trade_date);
+
+-- ============================================================================
+-- Views: Real Account Snapshot Overview
+-- ============================================================================
+
+CREATE OR REPLACE VIEW public.real_account_snapshot_overview_v AS
+SELECT
+    id,
+    tenant_id,
+    user_id,
+    account_id,
+    snapshot_at,
+    snapshot_date,
+    snapshot_month,
+    total_asset,
+    cash,
+    market_value,
+    today_pnl_raw,
+    total_pnl_raw,
+    floating_pnl_raw,
+    source,
+    payload_json,
+    COALESCE(
+        (SELECT ras.total_asset FROM public.real_account_snapshots ras
+         WHERE ras.tenant_id = real_account_snapshots.tenant_id
+         AND ras.user_id = real_account_snapshots.user_id
+         AND ras.account_id = real_account_snapshots.account_id
+         ORDER BY ras.snapshot_at ASC LIMIT 1),
+        total_asset
+    ) AS initial_equity,
+    COALESCE(
+        (SELECT ras.total_asset FROM public.real_account_snapshots ras
+         WHERE ras.tenant_id = real_account_snapshots.tenant_id
+         AND ras.user_id = real_account_snapshots.user_id
+         AND ras.account_id = real_account_snapshots.account_id
+         AND ras.snapshot_date = real_account_snapshots.snapshot_date
+         ORDER BY ras.snapshot_at ASC LIMIT 1),
+        total_asset
+    ) AS day_open_equity,
+    COALESCE(
+        (SELECT ras.total_asset FROM public.real_account_snapshots ras
+         WHERE ras.tenant_id = real_account_snapshots.tenant_id
+         AND ras.user_id = real_account_snapshots.user_id
+         AND ras.account_id = real_account_snapshots.account_id
+         AND ras.snapshot_month = real_account_snapshots.snapshot_month
+         ORDER BY ras.snapshot_at ASC LIMIT 1),
+        total_asset
+    ) AS month_open_equity
+FROM public.real_account_snapshots;
 
 -- ============================================================================
 -- Initial Data: Default Admin User
