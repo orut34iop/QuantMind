@@ -94,6 +94,37 @@ check_root() {
     fi
 }
 
+# 检查系统版本
+check_system() {
+    if [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        OS=$ID
+        VER=$VERSION_ID
+        log_info "检测到系统: $PRETTY_NAME"
+    else
+        log_error "无法检测系统版本"
+        exit 1
+    fi
+
+    # 仅支持 Ubuntu 22.04 及以上版本
+    if [[ "$OS" != "ubuntu" ]]; then
+        log_error "不支持的系统: $OS"
+        log_info "QuantMind 仅支持 Ubuntu 22.04 及以上版本"
+        exit 1
+    fi
+
+    # 检查 Ubuntu 版本号
+    MAJOR_VER=$(echo "$VER" | cut -d. -f1)
+    if [[ -z "$MAJOR_VER" ]] || [[ "$MAJOR_VER" -lt 22 ]]; then
+        log_error "Ubuntu 版本过低: $VER"
+        log_info "QuantMind 仅支持 Ubuntu 22.04 及以上版本"
+        log_info "推荐使用 Ubuntu 22.04 LTS 或 Ubuntu 24.04 LTS"
+        exit 1
+    fi
+
+    log_info "系统版本检查通过: Ubuntu $VER"
+}
+
 # 测试 Docker 镜像加速器
 test_docker_mirror() {
     local mirror=$1
@@ -666,6 +697,7 @@ main() {
     confirm_deploy
 
     check_root
+    check_system
 
     # 处理重置
     if $RESET; then
