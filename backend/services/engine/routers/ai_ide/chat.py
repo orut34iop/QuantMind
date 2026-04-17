@@ -164,10 +164,11 @@ async def chat_completions(request: Request, item: ChatRequest):
     if user_context:
         user_id = user_context.get("user_id")
         tenant_id = user_context.get("tenant_id", "default")
-        # 尝试从 User Service (quantmind-api) 动态获取当前用户的私有 Key
+        # 尝试从 User Service 动态获取当前用户的私有 Key
         try:
             from backend.shared.auth import get_internal_call_secret
-            api_gateway = os.getenv("INTERNAL_API_GATEWAY_URL", "http://quantmind-api:8000")
+            # OSS 单容器模式使用 127.0.0.1
+            api_gateway = os.getenv("INTERNAL_API_GATEWAY_URL", "http://127.0.0.1:8000")
             async with httpx.AsyncClient(timeout=3.0) as client:
                 headers = {
                     "X-Internal-Call": get_internal_call_secret(),

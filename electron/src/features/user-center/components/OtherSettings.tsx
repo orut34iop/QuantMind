@@ -75,7 +75,7 @@ export const OtherSettings: React.FC<OtherSettingsProps> = ({ userId, tenantId }
   if (isLoading) {
     return (
       <div className="w-full pt-1">
-        <div className="w-full rounded-xl border border-gray-200 bg-white p-8 flex items-center justify-center min-h-[280px]">
+        <div className="w-full rounded-2xl border border-gray-200 bg-white p-8 flex items-center justify-center min-h-[280px]">
           <Spin tip="加载中..." />
         </div>
       </div>
@@ -147,12 +147,12 @@ export const OtherSettings: React.FC<OtherSettingsProps> = ({ userId, tenantId }
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="sk-xxxxxxxxxxxxxxxx"
-                  className="pr-10 rounded-lg"
+                  style={{ borderRadius: '8px', paddingRight: '40px' }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowKey(!showKey)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
                 >
                   {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -163,7 +163,7 @@ export const OtherSettings: React.FC<OtherSettingsProps> = ({ userId, tenantId }
                 onClick={handleSaveApiKey}
                 loading={isSaving}
                 disabled={!apiKey.trim()}
-                className="rounded-lg"
+                style={{ borderRadius: '8px' }}
               >
                 保存
               </Button>

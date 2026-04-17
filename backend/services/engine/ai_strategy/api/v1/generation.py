@@ -133,7 +133,8 @@ async def _fetch_user_api_key(user_id: str, tenant_id: str = "default") -> str |
     """Fetch user's personal LLM API key from user profile."""
     try:
         from backend.shared.auth import get_internal_call_secret
-        api_gateway = os.getenv("INTERNAL_API_GATEWAY_URL", "http://quantmind-api:8000")
+        # OSS 单容器模式使用 127.0.0.1
+        api_gateway = os.getenv("INTERNAL_API_GATEWAY_URL", "http://127.0.0.1:8000")
         async with httpx.AsyncClient(timeout=3.0) as client:
             headers = {
                 "X-Internal-Call": get_internal_call_secret(),

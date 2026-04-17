@@ -23,6 +23,16 @@ def _get_user_info(request: Request):
     return user
 
 
+def _get_api_gateway_url():
+    """获取 API Gateway URL，OSS 模式下使用 127.0.0.1"""
+    # 优先使用环境变量
+    url = os.getenv("INTERNAL_API_GATEWAY_URL", "")
+    if url:
+        return url
+    # OSS 单容器模式，所有服务在同一容器内
+    return "http://127.0.0.1:8000"
+
+
 @router.get("/llm")
 async def get_llm_config(request: Request):
     """获取 LLM 配置状态（从用户 Profile 中读取并脱敏）"""
@@ -30,9 +40,7 @@ async def get_llm_config(request: Request):
     user_id = user["user_id"]
     tenant_id = user.get("tenant_id", "default")
 
-    # 尝试从 User Service (quantmind-api) 获取 Profile
-    # 容器内部可通过服务名访问
-    api_gateway = os.getenv("INTERNAL_API_GATEWAY_URL", "http://quantmind-api:8000")
+    api_gateway = _get_api_gateway_url()
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -73,7 +81,7 @@ async def save_llm_config(request: Request, config: LLMConfig):
     if not new_key:
         raise HTTPException(status_code=400, detail="API Key 不能为空")
 
-    api_gateway = os.getenv("INTERNAL_API_GATEWAY_URL", "http://quantmind-api:8000")
+    api_gateway = _get_api_gateway_url()
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
