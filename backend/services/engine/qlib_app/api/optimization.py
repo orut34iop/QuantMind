@@ -144,6 +144,8 @@ async def run_optimization(
             )
 
         return await service.run_optimization(request)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"优化执行失败: {str(e)}")
 
@@ -183,5 +185,7 @@ async def run_genetic_optimization(
             )
 
         return await service.run_optimization(request)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"遗传算法优化失败: {str(e)}")
