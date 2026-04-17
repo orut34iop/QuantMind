@@ -335,7 +335,7 @@ class StrategyStorageService:
                 "cos_url": cos_url,
                 "code_hash": hash_val,
                 "file_size": file_size,
-                "tags": _json_safe(tags),
+                "tags": list(tags) if isinstance(tags, (list, tuple)) else [],
                 "is_public": is_public,
                 "now": now,
                 "backtest_count": 0,
@@ -353,13 +353,13 @@ class StrategyStorageService:
                 sql = f"""
                     UPDATE strategies SET
                         name = :name, description = :desc,
-                        code = :code, cos_url = :cos_url, 
+                        code = :code, cos_url = :cos_url,
                         { "cos_key = :cos_key," if has_cos_key else "" }
                         code_hash = :code_hash, file_size = :file_size,
-                        config = CAST(:config AS jsonb), 
+                        config = CAST(:config AS jsonb),
                         parameters = CAST(:params AS jsonb),
                         execution_config = CAST(:exec_config AS jsonb),
-                        tags = CAST(:tags AS jsonb),
+                        tags = :tags,
                         updated_at = :now
                     WHERE id = :sid AND user_id = :uid
                 """
@@ -373,16 +373,16 @@ class StrategyStorageService:
                         config, parameters, execution_config, code, cos_url, 
                         { "cos_key," if has_cos_key else "" }
                         code_hash, file_size,
-                        tags, is_public, shared_users, 
+                        tags, is_public, shared_users,
                         backtest_count, view_count, like_count, version, is_verified,
                         created_at, updated_at
                     ) VALUES (
                         :uid, :name, :desc, :stype, :status,
                         CAST(:config AS jsonb), CAST(:params AS jsonb), CAST(:exec_config AS jsonb),
-                        :code, :cos_url, 
+                        :code, :cos_url,
                         { ":cos_key," if has_cos_key else "" }
                         :code_hash, :file_size,
-                        CAST(:tags AS jsonb), :is_public, CAST('[]' AS jsonb), 
+                        :tags, :is_public, CAST('[]' AS jsonb),
                         :backtest_count, :view_count, :like_count, :version, :is_verified,
                         :now, :now
                     ) RETURNING id
