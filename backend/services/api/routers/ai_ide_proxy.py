@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # 统一指向 Engine 服务的端口
-AI_IDE_SERVICE_URL = os.getenv("AI_IDE_SERVICE_URL", "http://quantmind-engine:8001").rstrip("/")
+AI_IDE_SERVICE_URL = os.getenv("AI_IDE_SERVICE_URL", "http://127.0.0.1:8001").rstrip("/")
 _HOP_HEADERS = {
     "connection",
     "keep-alive",
