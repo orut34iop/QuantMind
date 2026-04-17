@@ -312,7 +312,7 @@ class StrategyStorageService:
         now = datetime.now(timezone.utc)
         tags = _parse_tags(metadata.get("tags", []))
         description = metadata.get("description") or f"Updated ({now.strftime('%Y-%m-%d %H:%M')})"
-        strategy_type = metadata.get("strategy_type") or "QUANTITATIVE"
+        strategy_type = metadata.get("strategy_type") or "CUSTOM"
         status = metadata.get("status") or _STATUS_DRAFT
         config = metadata.get("config") or {}
         parameters = metadata.get("parameters") or {}
