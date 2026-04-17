@@ -34,33 +34,30 @@ class QwenLLM:
         ai_strategy_config = _gc()
 
         self._config = ai_strategy_config
-        self.api_key = os.getenv("QWEN_API_KEY")
+        self.api_key = os.getenv("QWEN_API_KEY") or os.getenv("DASHSCOPE_API_KEY")
         if not self.api_key:
-            raise RuntimeError("QWEN_API_KEY not set in environment")
+            raise RuntimeError("QWEN_API_KEY or DASHSCOPE_API_KEY not set in environment")
+        # OpenAI 兼容模式端点
         base_url = self._config.LLM_API_BASE.rstrip("/")
-        self.endpoint = f"{base_url}/services/aigc/text-generation/generation"
+        self.endpoint = f"{base_url}/chat/completions"
 
     def generate_code(self, prompt: str, mode: str = "simple") -> tuple[str, dict[str, Any]]:
+        # OpenAI 兼容模式请求格式
         payload = {
             "model": self._config.LLM_MODEL,
-            "input": {
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "You are an expert AI coding assistant specialized in quantitative trading strategies. Generate clean, efficient Python code.",
-                    },
-                    {"role": "user", "content": prompt},
-                ]
-            },
-            "parameters": {
-                "max_tokens": self._config.LLM_MAX_TOKENS,
-                "temperature": self._config.LLM_TEMPERATURE,
-            },
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You are an expert AI coding assistant specialized in quantitative trading strategies. Generate clean, efficient Python code.",
+                },
+                {"role": "user", "content": prompt},
+            ],
+            "max_tokens": self._config.LLM_MAX_TOKENS,
+            "temperature": self._config.LLM_TEMPERATURE,
         }
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
-            "X-DashScope-Async": "enable",
         }
 
         last_exc = None
@@ -70,16 +67,19 @@ class QwenLLM:
                 r.raise_for_status()
                 data = r.json()
 
-                # 通义千问返回格式处理
-                if "output" in data and "text" in data["output"]:
-                    content = data["output"]["text"]
-                else:
-                    content = data.get("text", "")
+                # OpenAI 兼容模式返回格式
+                content = ""
+                if "choices" in data and len(data["choices"]) > 0:
+                    choice = data["choices"][0]
+                    if "message" in choice:
+                        content = choice["message"].get("content", "")
+                    elif "text" in choice:
+                        content = choice["text"]
 
                 meta = {
-                    "model_used": data.get("model", "qwen-turbo"),
+                    "model_used": data.get("model", self._config.LLM_MODEL),
                     "usage": data.get("usage", {}),
-                    "request_id": data.get("request_id"),
+                    "request_id": data.get("id"),
                 }
                 return content, meta
             except Exception as e:
