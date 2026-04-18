@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, Col, Descriptions, Row, Space, Spin, Statistic, Table, Tag, message } from 'antd';
-import { CloudDownloadOutlined, DatabaseOutlined, ReloadOutlined } from '@ant-design/icons';
+import { DatabaseOutlined, ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { adminService } from '../services/adminService';
-import { AdminDataStatusInvalidSample, AdminDataStatusOlderSample, AdminDataStatusResult } from '../types';
+import {
+    AdminFeatureSnapshotsOlderSample,
+    AdminFeatureSnapshotsInvalidSample,
+    AdminDataStatusResult
+} from '../types';
 
 export const AdminDataManagement: React.FC = () => {
     const [loading, setLoading] = useState(false);
-    const [syncing, setSyncing] = useState(false);
     const [data, setData] = useState<AdminDataStatusResult | null>(null);
 
     const loadDataStatus = async (refresh = false) => {
@@ -32,48 +35,20 @@ export const AdminDataManagement: React.FC = () => {
         loadDataStatus();
     }, []);
 
-    const handleSyncMarketData = async () => {
-        setSyncing(true);
-        const hide = message.loading('正在从 Baostock 同步 market_data_daily ...', 0);
-        try {
-            const resp = await adminService.syncMarketDataDaily({ apply: true });
-            hide();
-            if (!resp.success) {
-                message.error(`同步失败: ${resp.error || '脚本执行失败'}`);
-                return;
-            }
-            if (resp.async) {
-                message.success('同步任务已提交至后台处理，请稍后刷新查看数据状态。');
-            } else {
-                const r = resp.result || {};
-                message.success(
-                    `同步完成：${r.effective_trade_date || '-'}，成功 ${r.symbols_ok ?? 0}，失败 ${r.symbols_failed ?? 0}`,
-                );
-                await loadDataStatus();
-            }
-        } catch (err: unknown) {
-            hide();
-            const msg = err instanceof Error ? err.message : '未知错误';
-            message.error(`同步失败: ${msg}`);
-        } finally {
-            setSyncing(false);
-        }
-    };
+    const qlib = data?.qlib_data;
+    const snapshots = data?.feature_snapshots;
+    const checkedAt = data?.checked_at ? dayjs(data.checked_at).format('YYYY-MM-DD HH:mm:ss') : '—';
+    const olderSamples = snapshots?.topn_samples?.older_samples || [];
+    const invalidSamples = snapshots?.topn_samples?.invalid_samples || [];
+    const sampleSize = snapshots?.topn_samples?.sample_size || 20;
 
     const coverageRate = useMemo(() => {
-        const c = data?.qlib_data?.latest_date_coverage;
+        const c = snapshots?.latest_date_coverage;
         if (!c) return 0;
         const total = c.at_target_count + c.older_count + c.invalid_count;
         if (total <= 0) return 0;
         return Math.round((c.at_target_count / total) * 10000) / 100;
-    }, [data]);
-
-    const qlib = data?.qlib_data;
-    const db = data?.market_data_daily;
-    const checkedAt = data?.checked_at ? dayjs(data.checked_at).format('YYYY-MM-DD HH:mm:ss') : '—';
-    const olderSamples = qlib?.topn_samples?.older_samples || [];
-    const invalidSamples = qlib?.topn_samples?.invalid_samples || [];
-    const sampleSize = qlib?.topn_samples?.sample_size || 20;
+    }, [snapshots]);
 
     const olderColumns = [
         {
@@ -127,23 +102,15 @@ export const AdminDataManagement: React.FC = () => {
             <div className="flex justify-between items-center">
                 <div>
                     <h3 className="text-xl font-black text-slate-800 tracking-tight">数据管理</h3>
-                    <p className="text-slate-400 text-xs mt-1 italic">查看 Qlib 文件数据与 market_data_daily 实时状态</p>
+                    <p className="text-slate-400 text-xs mt-1 italic">查看 Qlib 文件数据与特征快照状态</p>
                 </div>
                 <Space>
                     <Tag color="blue">检查时间: {checkedAt}</Tag>
                     <Button
-                        icon={<CloudDownloadOutlined />}
-                        className="rounded-xl h-10 px-5 border-slate-200 text-slate-700 font-bold"
-                        loading={syncing}
-                        onClick={handleSyncMarketData}
-                    >
-                        从Baostock补基础数据
-                    </Button>
-                    <Button
                         type="primary"
                         icon={<ReloadOutlined />}
                         className="rounded-xl h-10 px-5 bg-orange-600 border-none font-bold"
-                        loading={loading || syncing}
+                        loading={loading}
                         onClick={() => loadDataStatus(true)}
                     >
                         强制刷新
@@ -151,7 +118,7 @@ export const AdminDataManagement: React.FC = () => {
                     <Button
                         icon={<ReloadOutlined />}
                         className="rounded-xl h-10 px-5 border-slate-200 text-slate-700 font-bold"
-                        loading={loading || syncing}
+                        loading={loading}
                         onClick={() => loadDataStatus(false)}
                     >
                         刷新
@@ -175,17 +142,17 @@ export const AdminDataManagement: React.FC = () => {
                         </Col>
                         <Col span={6}>
                             <Card variant="borderless" className="rounded-2xl shadow-sm">
-                                <Statistic title="market_data 最新交易日" value={db?.latest_trade_date || '—'} />
+                                <Statistic title="特征快照最新日期" value={snapshots?.max_date || '—'} />
                             </Card>
                         </Col>
                         <Col span={6}>
                             <Card variant="borderless" className="rounded-2xl shadow-sm">
-                                <Statistic title="今日入库行数" value={db?.today_rows ?? 0} />
+                                <Statistic title="Parquet 文件数" value={snapshots?.file_count ?? 0} />
                             </Card>
                         </Col>
                         <Col span={6}>
                             <Card variant="borderless" className="rounded-2xl shadow-sm">
-                                <Statistic title="最新日覆盖率 (SH/SZ)" value={coverageRate} suffix="%" />
+                                <Statistic title="最新日覆盖率" value={coverageRate} suffix="%" />
                             </Card>
                         </Col>
                     </Row>
@@ -198,8 +165,13 @@ export const AdminDataManagement: React.FC = () => {
                             description={qlib?.qlib_dir || '路径未知'}
                         />
                     ) : null}
-                    {db?.error ? (
-                        <Alert type="warning" showIcon message="market_data_daily 查询异常" description={db.error} />
+                    {!snapshots?.exists ? (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="未检测到 feature_snapshots 目录"
+                            description={snapshots?.snapshot_dir || '路径未知'}
+                        />
                     ) : null}
 
                     <Card
@@ -226,76 +198,110 @@ export const AdminDataManagement: React.FC = () => {
                         </Descriptions>
                     </Card>
 
-                    <Card variant="borderless" className="rounded-2xl shadow-sm" title={<span className="font-bold">最新交易日覆盖</span>}>
-                        <Descriptions column={2} size="small" bordered>
-                            <Descriptions.Item label="目标日期">
-                                {qlib?.latest_date_coverage?.target_date || '—'}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="已覆盖 (at_target)">
-                                {qlib?.latest_date_coverage?.at_target_count ?? 0}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="较旧 (older)">
-                                {qlib?.latest_date_coverage?.older_count ?? 0}
-                            </Descriptions.Item>
-                            <Descriptions.Item label="无效 (invalid)">
-                                {qlib?.latest_date_coverage?.invalid_count ?? 0}
-                            </Descriptions.Item>
-                        </Descriptions>
+                    <Card
+                        variant="borderless"
+                        className="rounded-2xl shadow-sm"
+                        title={
+                            <Space>
+                                <DatabaseOutlined />
+                                <span className="font-bold">特征快照概览</span>
+                            </Space>
+                        }
+                    >
+                        {!snapshots?.exists ? (
+                            <Alert type="warning" showIcon message="目录不存在或无 parquet 文件" />
+                        ) : (
+                            <>
+                                <Descriptions column={2} size="small" bordered>
+                                    <Descriptions.Item label="快照目录">{snapshots?.snapshot_dir || '—'}</Descriptions.Item>
+                                    <Descriptions.Item label="Parquet 文件数">{snapshots?.file_count ?? 0}</Descriptions.Item>
+                                    <Descriptions.Item label="成功扫描">{snapshots?.scanned_files ?? 0}</Descriptions.Item>
+                                    <Descriptions.Item label="扫描失败">{snapshots?.failed_files ?? 0}</Descriptions.Item>
+                                    <Descriptions.Item label="数据开始日期">{snapshots?.min_date || '—'}</Descriptions.Item>
+                                    <Descriptions.Item label="数据结束日期">{snapshots?.max_date || '—'}</Descriptions.Item>
+                                    <Descriptions.Item label="总行数">{snapshots?.total_rows?.toLocaleString() ?? 0}</Descriptions.Item>
+                                    <Descriptions.Item label="错误">
+                                        {snapshots?.error ? <Tag color="red">{snapshots.error}</Tag> : <Tag color="green">无</Tag>}
+                                    </Descriptions.Item>
+                                </Descriptions>
+
+                                {snapshots?.suggested_periods ? (
+                                    <div className="mt-4">
+                                        <h4 className="font-bold text-slate-700 mb-2">建议训练/验证/测试划分</h4>
+                                        <Descriptions column={3} size="small" bordered>
+                                            <Descriptions.Item label="训练集">
+                                                {snapshots.suggested_periods.train[0]} ~ {snapshots.suggested_periods.train[1]}
+                                            </Descriptions.Item>
+                                            <Descriptions.Item label="验证集">
+                                                {snapshots.suggested_periods.val[0]} ~ {snapshots.suggested_periods.val[1]}
+                                            </Descriptions.Item>
+                                            <Descriptions.Item label="测试集">
+                                                {snapshots.suggested_periods.test[0]} ~ {snapshots.suggested_periods.test[1]}
+                                            </Descriptions.Item>
+                                        </Descriptions>
+                                    </div>
+                                ) : null}
+                            </>
+                        )}
                     </Card>
 
-                    <Card variant="borderless" className="rounded-2xl shadow-sm" title={<span className="font-bold">数据库数据状态</span>}>
-                        <Descriptions column={2} size="small" bordered>
-                            <Descriptions.Item label="系统交易日">{db?.trade_date || '—'}</Descriptions.Item>
-                            <Descriptions.Item label="最新交易日">{db?.latest_trade_date || '—'}</Descriptions.Item>
-                            <Descriptions.Item label="最新更新时间">{db?.latest_updated_at || '—'}</Descriptions.Item>
-                            <Descriptions.Item label="今日行数">{db?.today_rows ?? 0}</Descriptions.Item>
-                            <Descriptions.Item label="feature_* 列数">{db?.feature_column_count ?? 0}</Descriptions.Item>
-                            <Descriptions.Item label="是否与今日一致">
-                                {(db?.latest_trade_date || '') === (db?.trade_date || '') ? (
-                                    <Tag color="green">一致</Tag>
-                                ) : (
-                                    <Tag color="orange">不一致</Tag>
-                                )}
-                            </Descriptions.Item>
-                        </Descriptions>
-                    </Card>
+                    {snapshots?.exists && snapshots.latest_date_coverage ? (
+                        <Card variant="borderless" className="rounded-2xl shadow-sm" title={<span className="font-bold">最新日期覆盖</span>}>
+                            <Descriptions column={2} size="small" bordered>
+                                <Descriptions.Item label="目标日期">
+                                    {snapshots?.latest_date_coverage?.target_date || '—'}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="已覆盖 (at_target)">
+                                    {snapshots?.latest_date_coverage?.at_target_count ?? 0}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="较旧 (older)">
+                                    {snapshots?.latest_date_coverage?.older_count ?? 0}
+                                </Descriptions.Item>
+                                <Descriptions.Item label="无效 (invalid)">
+                                    {snapshots?.latest_date_coverage?.invalid_count ?? 0}
+                                </Descriptions.Item>
+                            </Descriptions>
+                        </Card>
+                    ) : null}
 
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Card
-                                variant="borderless"
-                                className="rounded-2xl shadow-sm"
-                                title={<span className="font-bold">异常标的 Top{sampleSize}：数据滞后（older）</span>}
-                            >
-                                <Table<AdminDataStatusOlderSample>
-                                    size="small"
-                                    pagination={false}
-                                    rowKey={(r) => `${r.symbol}-${r.last_date}`}
-                                    dataSource={olderSamples}
-                                    columns={olderColumns}
-                                    locale={{ emptyText: '暂无滞后样本' }}
-                                    scroll={{ y: 320 }}
-                                />
-                            </Card>
-                        </Col>
-                        <Col span={12}>
-                            <Card
-                                variant="borderless"
-                                className="rounded-2xl shadow-sm"
-                                title={<span className="font-bold">异常标的 Top{sampleSize}：结构异常（invalid）</span>}
-                            >
-                                <Table<AdminDataStatusInvalidSample>
-                                    size="small"
-                                    pagination={false}
-                                    rowKey={(r) => `${r.symbol}-${r.reason}-${r.file || ''}`}
-                                    dataSource={invalidSamples}
-                                    columns={invalidColumns}
-                                    locale={{ emptyText: '暂无无效样本' }}
-                                    scroll={{ y: 320 }}
-                                />
-                            </Card>
-                        </Col>
-                    </Row>
+                    {snapshots?.exists && (olderSamples.length > 0 || invalidSamples.length > 0) ? (
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <Card
+                                    variant="borderless"
+                                    className="rounded-2xl shadow-sm"
+                                    title={<span className="font-bold">异常标的 Top{sampleSize}：数据滞后（older）</span>}
+                                >
+                                    <Table<AdminFeatureSnapshotsOlderSample>
+                                        size="small"
+                                        pagination={false}
+                                        rowKey={(r) => `${r.symbol}-${r.last_date}`}
+                                        dataSource={olderSamples}
+                                        columns={olderColumns}
+                                        locale={{ emptyText: '暂无滞后样本' }}
+                                        scroll={{ y: 320 }}
+                                    />
+                                </Card>
+                            </Col>
+                            <Col span={12}>
+                                <Card
+                                    variant="borderless"
+                                    className="rounded-2xl shadow-sm"
+                                    title={<span className="font-bold">异常文件 Top{sampleSize}：读取失败（invalid）</span>}
+                                >
+                                    <Table<AdminFeatureSnapshotsInvalidSample>
+                                        size="small"
+                                        pagination={false}
+                                        rowKey={(r) => `${r.symbol}-${r.reason}-${r.file || ''}`}
+                                        dataSource={invalidSamples}
+                                        columns={invalidColumns}
+                                        locale={{ emptyText: '暂无无效样本' }}
+                                        scroll={{ y: 320 }}
+                                    />
+                                </Card>
+                            </Col>
+                        </Row>
+                    ) : null}
                 </>
             ) : null}
         </div>

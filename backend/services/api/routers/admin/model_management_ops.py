@@ -28,6 +28,7 @@ except ImportError:
     celery_app = None
 
 from .model_management_utils import (
+    FEATURE_SNAPSHOT_DIR,
     MODELS_PRODUCTION,
     MODELS_ROOT,
     _enrich_feature_catalog_with_data_coverage,
@@ -38,6 +39,7 @@ from .model_management_utils import (
     _resolve_inference_dates_with_calendar,
     _resolve_ready_threshold,
     _scan_model_directory,
+    _scan_feature_snapshots_status,
 )
 
 router = APIRouter()
@@ -90,7 +92,7 @@ async def get_model_feature_catalog(
     raise HTTPException(status_code=404, detail="未找到可用的特征字典（DB/文件均不可用）")
 
 
-@router.get("/data-status", summary="查看当前数据状态（Qlib + 市场数据）")
+@router.get("/data-status", summary="查看当前数据状态（Qlib + 特征快照）")
 async def get_data_status(
     refresh: bool = Query(False, description="是否强制刷新（后台异步）"),
     current_user: dict = Depends(require_admin),
@@ -99,7 +101,7 @@ async def get_data_status(
     管理后台数据管理接口：
     - 优先从 Redis 获取缓存结果
     - Qlib 文件数据（calendar/instruments/features）状态
-    - market_data_daily 表最新入库状态
+    - feature_snapshots 目录下的 parquet 文件状态
     """
     _ = current_user
     redis = None
@@ -153,6 +155,7 @@ async def get_data_status(
         trade_date_obj = _latest_trading_session(today)
     trade_date = trade_date_obj.isoformat()
 
+    # ========== Qlib 数据状态扫描 ==========
     qlib_data_dir = Path(os.getcwd()) / "db" / "qlib_data"
     calendars_path = qlib_data_dir / "calendars" / "day.txt"
     instruments_all_path = qlib_data_dir / "instruments" / "all.txt"
@@ -203,23 +206,17 @@ async def get_data_status(
         qlib_info["feature_dirs_total"] = len(feature_dirs)
         qlib_info["sync_partial"] = True # 标记为部分同步结果
 
-    db_info: dict[str, Any] = {"trade_date": trade_date, "latest_trade_date": None, "latest_updated_at": None, "today_rows": 0, "feature_column_count": 0}
-    try:
-        async with get_session(read_only=True) as session:
-            stat_sql = text("SELECT MAX(date) AS latest_trade_date, MAX(updated_at) AS latest_updated_at, COUNT(*) FILTER (WHERE date = :trade_date) AS today_rows FROM market_data_daily")
-            row = (await session.execute(stat_sql, {"trade_date": trade_date_obj})).mappings().first()
-            if row:
-                db_info["latest_trade_date"] = str(row.get("latest_trade_date")) if row.get("latest_trade_date") else None
-                db_info["latest_updated_at"] = row.get("latest_updated_at").isoformat() if row.get("latest_updated_at") else None
-                db_info["today_rows"] = int(row.get("today_rows") or 0)
-    except Exception as e:
-        db_info["error"] = str(e)
+    # ========== Feature Snapshots 状态扫描 ==========
+    feature_snapshots_info = _scan_feature_snapshots_status(
+        target_date=trade_date,
+        topn=20,
+    )
 
     return {
         "checked_at": now_local.isoformat(),
         "trade_date": trade_date,
         "qlib_data": qlib_info,
-        "market_data_daily": db_info,
+        "feature_snapshots": feature_snapshots_info,
         "async_trigger": bool(celery_app),
         "message": "数据正在后台扫描中，请稍后刷新" if not refresh else "已触发强制刷新任务"
     }

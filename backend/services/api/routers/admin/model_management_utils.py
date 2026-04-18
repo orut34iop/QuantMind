@@ -334,6 +334,183 @@ def _get_feature_snapshot_coverage_cached() -> dict[str, Any] | None:
     return payload
 
 
+def _scan_feature_snapshots_status(
+    target_date: str | None = None,
+    topn: int = 20,
+) -> dict[str, Any]:
+    """
+    扫描 db/feature_snapshots 目录下的 parquet 文件状态，用于管理后台数据管理页面。
+
+    Parameters
+    ----------
+    target_date : str | None
+        目标日期（YYYY-MM-DD），用于计算最新日期覆盖率。默认使用当前交易日。
+    topn : int
+        返回异常样本的最大数量。
+
+    Returns
+    -------
+    dict containing:
+        - exists: 目录是否存在
+        - snapshot_dir: 目录路径
+        - file_count: parquet 文件数量
+        - scanned_files: 成功扫描的文件数
+        - failed_files: 扫描失败的文件数
+        - total_rows: 总行数
+        - min_date: 最小日期
+        - max_date: 最大日期
+        - latest_date_coverage: 最新日期覆盖情况
+        - topn_samples: 异常样本（older/invalid）
+        - suggested_periods: 建议的训练/验证/测试划分
+    """
+    result: dict[str, Any] = {
+        "exists": False,
+        "snapshot_dir": str(FEATURE_SNAPSHOT_DIR),
+        "file_count": 0,
+        "scanned_files": 0,
+        "failed_files": 0,
+        "total_rows": 0,
+        "min_date": None,
+        "max_date": None,
+        "latest_date_coverage": {
+            "target_date": target_date,
+            "at_target_count": 0,
+            "older_count": 0,
+            "invalid_count": 0,
+        },
+        "topn_samples": {
+            "sample_size": topn,
+            "older_samples": [],
+            "invalid_samples": [],
+        },
+        "suggested_periods": None,
+    }
+
+    if not FEATURE_SNAPSHOT_DIR.exists() or not FEATURE_SNAPSHOT_DIR.is_dir():
+        return result
+
+    result["exists"] = True
+
+    # 查找所有 parquet 文件
+    files = sorted(FEATURE_SNAPSHOT_DIR.glob("*.parquet"))
+    result["file_count"] = len(files)
+
+    if not files:
+        return result
+
+    try:
+        import pandas as pd
+    except Exception:
+        result["error"] = "pandas not available"
+        return result
+
+    min_date: date | None = None
+    max_date: date | None = None
+    total_rows = 0
+    scanned_files = 0
+    failed_files = 0
+
+    # 用于统计每个 symbol 的最新日期
+    symbol_latest_dates: dict[str, date] = {}
+    invalid_samples: list[dict[str, Any]] = []
+
+    for file_path in files:
+        try:
+            # 读取 trade_date 和 symbol 列
+            df = pd.read_parquet(
+                file_path,
+                columns=["trade_date", "symbol"],
+                engine="pyarrow"
+            )
+            if df.empty:
+                continue
+
+            # 解析日期
+            date_series = pd.to_datetime(df["trade_date"], errors="coerce")
+            file_min = date_series.min()
+            file_max = date_series.max()
+
+            if pd.isna(file_min) or pd.isna(file_max):
+                invalid_samples.append({
+                    "symbol": "N/A",
+                    "reason": "invalid_trade_date",
+                    "file": file_path.name,
+                })
+                continue
+
+            file_min_date = file_min.date()
+            file_max_date = file_max.date()
+            min_date = file_min_date if min_date is None else min(min_date, file_min_date)
+            max_date = file_max_date if max_date is None else max(max_date, file_max_date)
+
+            # 统计每个 symbol 的最新日期
+            for sym, dt in zip(df["symbol"], date_series):
+                if pd.isna(dt):
+                    continue
+                sym_str = str(sym)
+                dt_date = dt.date()
+                if sym_str not in symbol_latest_dates or symbol_latest_dates[sym_str] < dt_date:
+                    symbol_latest_dates[sym_str] = dt_date
+
+            scanned_files += 1
+            total_rows += len(df)
+
+        except Exception as e:
+            failed_files += 1
+            invalid_samples.append({
+                "symbol": "N/A",
+                "reason": f"read_error: {str(e)[:50]}",
+                "file": file_path.name,
+            })
+
+    result["scanned_files"] = scanned_files
+    result["failed_files"] = failed_files
+    result["total_rows"] = total_rows
+
+    if min_date is not None:
+        result["min_date"] = min_date.isoformat()
+    if max_date is not None:
+        result["max_date"] = max_date.isoformat()
+
+    # 计算最新日期覆盖率
+    if target_date and max_date:
+        target = date.fromisoformat(target_date)
+        at_target_count = 0
+        older_count = 0
+        older_samples: list[dict[str, Any]] = []
+
+        for sym, latest_dt in sorted(symbol_latest_dates.items()):
+            if latest_dt >= target:
+                at_target_count += 1
+            else:
+                older_count += 1
+                lag_days = (target - latest_dt).days
+                if len(older_samples) < topn:
+                    older_samples.append({
+                        "symbol": sym,
+                        "last_date": latest_dt.isoformat(),
+                        "lag_days": lag_days,
+                    })
+
+        result["latest_date_coverage"] = {
+            "target_date": target_date,
+            "at_target_count": at_target_count,
+            "older_count": older_count,
+            "invalid_count": len(invalid_samples),
+        }
+        result["topn_samples"] = {
+            "sample_size": topn,
+            "older_samples": older_samples[:topn],
+            "invalid_samples": invalid_samples[:topn],
+        }
+
+    # 计算建议的训练/验证/测试划分
+    if min_date and max_date:
+        result["suggested_periods"] = _build_suggested_periods(min_date, max_date)
+
+    return result
+
+
 def _enrich_feature_catalog_with_data_coverage(catalog: dict[str, Any] | None) -> dict[str, Any] | None:
     if not isinstance(catalog, dict):
         return catalog

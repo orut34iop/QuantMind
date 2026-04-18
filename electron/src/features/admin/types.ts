@@ -231,12 +231,49 @@ export interface AdminDataStatusQlib {
     instruments_error?: string;
 }
 
-export interface AdminDataStatusMarketDataDaily {
-    trade_date: string;
-    latest_trade_date: string | null;
-    latest_updated_at: string | null;
-    today_rows: number | null;
-    feature_column_count: number | null;
+export interface AdminFeatureSnapshotsOlderSample {
+    symbol: string;
+    last_date: string;
+    lag_days: number;
+}
+
+export interface AdminFeatureSnapshotsInvalidSample {
+    symbol: string;
+    reason: string;
+    file?: string;
+}
+
+export interface AdminFeatureSnapshotsTopNSamples {
+    sample_size: number;
+    older_samples: AdminFeatureSnapshotsOlderSample[];
+    invalid_samples: AdminFeatureSnapshotsInvalidSample[];
+}
+
+export interface AdminFeatureSnapshotsLatestCoverage {
+    target_date: string | null;
+    at_target_count: number;
+    older_count: number;
+    invalid_count: number;
+}
+
+export interface AdminFeatureSnapshotsSuggestedPeriods {
+    train: [string, string];
+    val: [string, string];
+    test: [string, string];
+}
+
+export interface AdminFeatureSnapshotsStatus {
+    exists: boolean;
+    snapshot_dir: string;
+    file_count: number;
+    scanned_files: number;
+    failed_files: number;
+    total_rows: number;
+    min_date: string | null;
+    max_date: string | null;
+    latest_date_coverage: AdminFeatureSnapshotsLatestCoverage;
+    topn_samples?: AdminFeatureSnapshotsTopNSamples;
+    suggested_periods?: AdminFeatureSnapshotsSuggestedPeriods;
     error?: string;
 }
 
@@ -244,7 +281,7 @@ export interface AdminDataStatusResult {
     checked_at: string;
     trade_date: string;
     qlib_data: AdminDataStatusQlib;
-    market_data_daily: AdminDataStatusMarketDataDaily;
+    feature_snapshots: AdminFeatureSnapshotsStatus;
     from_cache?: boolean;
     message?: string;
 }
