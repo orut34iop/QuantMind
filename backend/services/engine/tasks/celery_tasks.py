@@ -624,32 +624,41 @@ def get_data_status_task() -> dict[str, Any]:
 
     db_info = {"trade_date": trade_date, "latest_trade_date": None, "latest_updated_at": None, "today_rows": 0, "feature_column_count": 0}
 
-    try:
-        # 无法在 Celery 任务中直接使用 async get_session，需要同步执行或正确处理
-        # 强制使用后端 shared 提供的同步工具（如果存在）或直接使用 sqlalchemy
-        from sqlalchemy import create_url
-        from backend.shared.database import SessionLocal
-        session = SessionLocal()
-        try:
-            stat_sql = text("SELECT MAX(date) as latest_trade_date, MAX(updated_at) as latest_updated_at, COUNT(*) FILTER (WHERE date = :d) as today_rows FROM market_data_daily")
-            row = session.execute(stat_sql, {"d": trade_date_obj}).mappings().first()
-            if row:
-                db_info["latest_trade_date"] = str(row["latest_trade_date"]) if row["latest_trade_date"] else None
-                db_info["latest_updated_at"] = row["latest_updated_at"].isoformat() if row["latest_updated_at"] else None
-                db_info["today_rows"] = int(row["today_rows"] or 0)
+    # feature_snapshots 检测（替代 market_data_daily）
+    feature_snapshots_info: dict[str, Any] = {
+        "exists": False,
+        "snapshot_dir": str(Path(os.getcwd()) / "db" / "feature_snapshots"),
+        "file_count": 0,
+        "scanned_files": 0,
+        "failed_files": 0,
+        "total_rows": 0,
+        "min_date": None,
+        "max_date": None,
+        "latest_date_coverage": {
+            "target_date": trade_date,
+            "at_target_count": 0,
+            "older_count": 0,
+            "invalid_count": 0,
+        },
+        "topn_samples": {
+            "sample_size": 20,
+            "older_samples": [],
+            "invalid_samples": [],
+        },
+        "suggested_periods": None,
+    }
 
-            f_cols = session.execute(text("SELECT COUNT(*) as cnt FROM information_schema.columns WHERE table_name = 'market_data_daily' AND column_name ~ '^feature_[0-9]+$'")).scalar()
-            db_info["feature_column_count"] = int(f_cols or 0)
-        finally:
-            session.close()
+    try:
+        from backend.services.api.routers.admin.model_management_utils import _scan_feature_snapshots_status
+        feature_snapshots_info = _scan_feature_snapshots_status(target_date=trade_date, topn=20)
     except Exception as e:
-        db_info["error"] = str(e)
+        feature_snapshots_info["error"] = str(e)
 
     result = {
         "checked_at": now_local.isoformat(),
         "trade_date": trade_date,
         "qlib_data": qlib_info,
-        "market_data_daily": db_info,
+        "feature_snapshots": feature_snapshots_info,
     }
 
     # 存入 Redis
