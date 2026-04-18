@@ -88,38 +88,58 @@ flowchart LR
 
 | 组件 | 版本 | 说明 |
 |------|------|------|
-| Docker | 20.10+ | 容器运行环境 |
-| Docker Compose | 2.0+ | 服务编排 |
-| Node.js | 18+ | 前端开发（可选） |
+| 操作系统 | Ubuntu 22.04+ | 推荐 Ubuntu 24.04 LTS |
 | 内存 | 8GB+ | 推荐 16GB |
+| 磁盘 | 20GB+ | 推荐 50GB+ |
 
 ### 一键部署
 
-```bash
-# 克隆项目
-git clone https://github.com/anthropics/quantmind.git
-cd quantmind
+在全新的 Ubuntu 服务器上执行：
 
-# 一键部署（Ubuntu 22.04+）
-sudo ./deploy/deploy.sh
+```bash
+curl -fsSL https://gitee.com/qusong0627/quantmind/raw/master/deploy/deploy.sh | sudo bash
 ```
 
 部署完成后访问：`http://<服务器IP>`
 
 **默认账号：** `admin` / `admin123`
 
+### 部署选项
+
+```bash
+# 完整部署
+sudo ./deploy/deploy.sh
+
+# 仅部署后端
+sudo ./deploy/deploy.sh --backend-only
+
+# 仅部署前端
+sudo ./deploy/deploy.sh --frontend-only
+
+# 断点续传（中断后继续）
+sudo ./deploy/deploy.sh --resume
+
+# 重置进度重新部署
+sudo ./deploy/deploy.sh --reset
+```
+
 ### 手动部署
 
 ```bash
-# 启动后端服务
-docker-compose up -d
+# 克隆项目
+git clone https://gitee.com/qusong0627/quantmind.git
+cd quantmind
 
-# 查看服务状态
-docker-compose ps
-
-# 启动前端（开发模式）
-npm install && npm run dev
+# 执行部署脚本
+sudo ./deploy/deploy.sh
 ```
+
+**部署内容：**
+- Docker & Docker Compose
+- PostgreSQL 15 + Redis 7
+- Node.js 20 + PM2 + Nginx
+- QuantMind 后端服务（4 个微服务）
+- QuantMind 前端应用
 
 ---
 
