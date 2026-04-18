@@ -19,7 +19,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python">
   <img src="https://img.shields.io/badge/Node.js-18+-green.svg" alt="Node.js">
-  <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License">
+  <img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" alt="License">
   <img src="https://img.shields.io/badge/Qlib-Powered-orange.svg" alt="Qlib">
 </p>
 
@@ -393,7 +393,7 @@ quantmind/
 
 ## 📄 License
 
-[MIT License](LICENSE)
+[GNU Affero General Public License v3.0](LICENSE)
 
 ---
 
