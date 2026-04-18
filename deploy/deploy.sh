@@ -404,6 +404,10 @@ step9_start_backend() {
 
     cd $DEPLOY_DIR/quantmind
 
+    # 修复数据目录权限
+    chown -R 999:999 $DATA_DIR/postgres 2>/dev/null || true
+    chown -R 999:999 $DATA_DIR/redis 2>/dev/null || true
+
     log_info "启动 Docker Compose 服务..."
     docker compose up -d
 
@@ -436,6 +440,16 @@ step10_init_database() {
         log_warn "未找到初始化 SQL: data/quantmind_init.sql"
     fi
 
+    # 创建默认管理员用户（如果不存在）
+    log_info "创建默认管理员用户..."
+    docker exec quantmind-db psql -U quantmind -d quantmind -c "
+    INSERT INTO users (user_id, tenant_id, username, email, password_hash, is_active, is_admin, is_verified, is_locked, is_deleted, login_count, created_at, updated_at)
+    SELECT gen_random_uuid(), 'default', 'admin', 'admin@quantmind.io',
+           '\$2b\$12\$b50Z2D1/xYVn9pN4iZ4ezekqjUveHMaWuBudlINRTB4L6qVStx/X6',
+           true, true, true, false, false, 0, now(), now()
+    WHERE NOT EXISTS (SELECT 1 FROM users WHERE username = 'admin' AND tenant_id = 'default');
+    " 2>/dev/null || log_warn "管理员用户可能已存在"
+
     log_done "Step 10"
     save_progress "10"
 }
@@ -449,6 +463,18 @@ step11_install_frontend() {
     cd $DEPLOY_DIR/quantmind
 
     chown -R ${SUDO_USER:-root}:${SUDO_USER:-root} .
+
+    # 配置 npm 镜像加速（包括 Electron）
+    log_info "配置 npm 镜像加速..."
+    NPMRC_FILE="/home/${SUDO_USER:-root}/.npmrc"
+    if [[ ! -f "$NPMRC_FILE" ]]; then
+        NPMRC_FILE="/root/.npmrc"
+    fi
+    cat >> "$NPMRC_FILE" << 'EOF'
+registry=https://registry.npmmirror.com
+electron_mirror=https://npmmirror.com/mirrors/electron/
+electron_builder_binaries_mirror=https://npmmirror.com/mirrors/electron-builder-binaries/
+EOF
 
     log_info "安装 npm 依赖 (3-5分钟)..."
     sudo -u ${SUDO_USER:-root} npm install
@@ -464,6 +490,12 @@ step12_build_frontend() {
     log_step "Step 12: 构建前端"
 
     cd $DEPLOY_DIR/quantmind
+
+    # 确保 build 目录存在（Electron 构建需要 icon.ico）
+    mkdir -p electron/build
+    if [[ ! -f electron/build/icon.ico ]]; then
+        cp electron/public/favicon.ico electron/build/icon.ico 2>/dev/null || true
+    fi
 
     log_info "构建生产版本..."
     sudo -u ${SUDO_USER:-root} env VITE_API_BASE_URL="" npm run dashboard:build
