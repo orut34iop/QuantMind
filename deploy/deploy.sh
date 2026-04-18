@@ -529,7 +529,10 @@ EOF
 
     log_info "npm 镜像配置完成: $npm_mirror"
     log_info "安装 npm 依赖 (3-5分钟)..."
-    sudo -u ${SUDO_USER:-root} npm install
+    # 添加 --loglevel=verbose 显示进度
+    sudo -u ${SUDO_USER:-root} npm install --loglevel=verbose 2>&1 | grep -E "http|fetch|package|WARN|ERR|done" | while read line; do
+        echo -e "\r$line"
+    done
 
     log_done "Step 11"
     save_progress "11"
