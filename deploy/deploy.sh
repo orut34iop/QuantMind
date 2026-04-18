@@ -378,9 +378,7 @@ step7_config_environment() {
     else
         log_info "创建 .env 配置文件..."
 
-        SECRET_KEY=$(openssl rand -hex 32)
-        JWT_SECRET_KEY=$(openssl rand -hex 32)
-
+        # 单机部署使用固定 secret，简化配置
         cat > .env << EOF
 # QuantMind OSS Edition 配置
 
@@ -388,8 +386,9 @@ APP_EDITION=oss
 APP_ENV=production
 TZ=Asia/Shanghai
 
-SECRET_KEY=${SECRET_KEY}
-JWT_SECRET_KEY=${JWT_SECRET_KEY}
+# 固定密钥（单机部署简化配置）
+SECRET_KEY=quantmind-oss-secret-key-2026-production
+JWT_SECRET_KEY=quantmind-oss-jwt-secret-key-2026-production
 
 DB_HOST=db
 DB_PORT=5432
