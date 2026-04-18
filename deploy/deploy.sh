@@ -364,7 +364,8 @@ EOF
         log_info ".env 文件创建完成"
     fi
 
-    mkdir -p $DATA_DIR/{postgres,redis,logs,models,backtest_results}
+    mkdir -p $DATA_DIR/{postgres,redis,logs,models,backtest_results,feature_snapshots}
+    mkdir -p $DEPLOY_DIR/quantmind/db/feature_snapshots
     log_info "数据目录: $DATA_DIR"
 
     log_done "Step 7"
