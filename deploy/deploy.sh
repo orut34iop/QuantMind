@@ -37,7 +37,6 @@ PROGRESS_FILE="/tmp/quantmind_deploy_progress"
 
 # Docker 镜像加速器列表（自动选择可用）
 DOCKER_MIRRORS=(
-    "https://naw1faud2gpqbs.xuanyuan.run"
     "https://docker.1ms.run"
     "https://docker.xuanyuan.live"
     "https://hub.rat.dev"
@@ -142,16 +141,16 @@ test_docker_mirror() {
 
 # 选择最佳 Docker 镜像
 select_docker_mirror() {
-    log_info "测试 Docker 镜像加速器..."
+    log_info "测试 Docker 镜像加速器..." >&2
     for mirror in "${DOCKER_MIRRORS[@]}"; do
         if test_docker_mirror "$mirror"; then
+            log_info "选择镜像: $mirror" >&2
             echo "$mirror"
-            log_info "选择镜像: $mirror"
             return
         fi
     done
+    log_warn "未找到可用镜像加速器，使用默认源" >&2
     echo ""
-    log_warn "未找到可用镜像加速器，使用默认源"
 }
 
 # 测试 npm 镜像加速器
@@ -165,16 +164,16 @@ test_npm_mirror() {
 
 # 选择最佳 npm 镜像
 select_npm_mirror() {
-    log_info "测试 npm 镜像加速器..."
+    log_info "测试 npm 镜像加速器..." >&2
     for mirror in "${NPM_MIRRORS[@]}"; do
         if test_npm_mirror "$mirror"; then
+            log_info "选择镜像: $mirror" >&2
             echo "$mirror"
-            log_info "选择镜像: $mirror"
             return
         fi
     done
+    log_warn "未找到可用镜像加速器，使用默认源" >&2
     echo "https://registry.npmjs.org"
-    log_warn "未找到可用镜像加速器，使用默认源"
 }
 
 #===============================================================================
