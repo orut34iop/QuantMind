@@ -208,8 +208,9 @@ async def start_trading(
                 f.write(content)
             code_str = content.decode("utf-8")
         else:
+            code_str = f"# strategy_ref={strategy_id}\n"
             with open(file_path, "w", encoding="utf-8") as f:
-                f.write(f"# strategy_ref={strategy_id}\n")
+                f.write(code_str)
 
         # 3. K8s 调度 (仅针对 REAL 和 SHADOW 模式)
         result = {"status": "success", "mode": mode}

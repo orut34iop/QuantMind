@@ -1,12 +1,13 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
 // Web 部署使用相对路径，通过 Nginx 代理访问后端
 // Electron 桌面版使用绝对路径
-const apiBase = process.env.VITE_API_URL || process.env.VITE_API_BASE_URL || '';
-const wsBase = process.env.VITE_WS_BASE_URL || '';
-
 export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), '');
+  const apiBase = env.VITE_API_URL || env.VITE_API_BASE_URL || '';
+  const wsBase = env.VITE_WS_BASE_URL || '';
+  const wsUrl = env.VITE_WS_URL || 'ws://localhost:8003';
   return {
     base: mode === 'production' ? './' : '/',
     plugins: [react()],
@@ -27,6 +28,7 @@ export default defineConfig(({ mode }) => {
       'process.env.VITE_DEV': JSON.stringify(process.env.VITE_DEV || '0'),
       'process.env.VITE_API_BASE_URL': JSON.stringify(apiBase),
       'process.env.VITE_WS_BASE_URL': JSON.stringify(wsBase),
+      'process.env.VITE_WS_URL': JSON.stringify(wsUrl),
       'process.env.REACT_APP_API_BASE_URL': JSON.stringify(process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000'),
       // OSS Edition - local storage only
       'process.env.COS_SECRET_ID': JSON.stringify(''),
@@ -55,11 +57,11 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0', // 允许外部访问
       proxy: {
         '/api': {
-          target: process.env.VITE_API_URL || 'http://localhost:8000',
+          target: env.VITE_API_URL || 'http://localhost:8000',
           changeOrigin: true,
         },
         '/ws': {
-          target: process.env.VITE_WS_URL || 'ws://localhost:8000',
+          target: wsUrl,
           ws: true,
         },
         '/api/tencent': {

@@ -48,7 +48,7 @@ const getWebSocketUrl = () => {
   // Web 部署使用相对路径，通过 Nginx 代理
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${window.location.host}/ws/api/v1/ws/market`;
+    return `${protocol}//${window.location.host}/ws`;
   }
   return '';
 };
